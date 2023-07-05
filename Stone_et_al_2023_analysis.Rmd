@@ -1,13 +1,14 @@
 ---
 title: "Stone et al. 2023 methylation analysis"
+author: "Carl Stone, Gwyneth Boyer, & Megan Behringer"
 output:
-  html_document:
+  github_document:
     df_print: paged
 ---
 
 # CoMMA: Comparison of Microbial Methylated Adenines
 
-CoMMA can be found at https://github.com/carl-stone/CoMMA
+Below is the code for replicating all analyses in Stone et al. 2023. The functions sourced in block 3 can also be found in this repository. CoMMA can be found at https://github.com/carl-stone/CoMMA. More details on general nanopore methylation analysis in bacteria can be found in the CoMMA repository.
 
 ## Raw data and pre-processing
 
@@ -37,10 +38,17 @@ BiocManager::install(c("tidyverse",
                        "gtools",
                        "readxl",
                        "ape",
-                       "ggupset"))
+                       "ggupset",
+                       "clusterProfiler",
+                       "AnnotationHub",
+                       "org.EcK12.eg.db",
+                       "DOSE"))
+install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+install_github("carl-stone/CoMMA")
+
 ```
 
-```{r load_required_packages}
+```{r load_required_packages, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(methylKit)
 library(cowplot)
@@ -67,7 +75,11 @@ library(gtools)
 library(readxl)
 library(circlize)
 library(ggupset)
-library(ape)
+library(pairwiseAdonis)
+library(enrichplot)
+library(DOSE)
+library(clusterProfiler)
+library(org.EcK12.eg.db)
 
 if (!require("ggview")) {
   remotes::install_github("idmn/ggview")
@@ -75,7 +87,7 @@ if (!require("ggview")) {
 }
 ```
 
-```{r raw_data_input}
+```{r raw_data_input, warning=FALSE}
 # Set wd to Behringer_Lab_Box_Drive
 if (Sys.info()['nodename'] == "AS707CQ6X2" |
     Sys.info()['nodename'] == "carls-mbp.lan" |
@@ -412,16 +424,16 @@ figure_2 <- plot_grid(methyl_distribution_by_caller,
 
 ggview(figure_2, height = 7, width = 8)
 
-ggsave(figure_2,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_2.pdf",
-       width = 8,
-       height = 7)
+#ggsave(figure_2,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_2.pdf",
+#       width = 8,
+#       height = 7)
 
-ggsave(figure_2,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_2.png",
-       width = 8,
-       height = 7,
-       dpi = 320)
+#ggsave(figure_2,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_2.png",
+#       width = 8,
+#       height = 7,
+#       dpi = 320)
 
 ```
 
@@ -696,6 +708,15 @@ sigma_avg_methylation_plot <- WT_average_annotated_long %>%
              linetype = "dashed")
 sigma_avg_methylation_plot
 
+# Number of GATC sites in each Sigma factor binding site
+WT_average_annotated_long %>% 
+  filter(grepl('Sigma', feature_type)) %>% 
+  group_by(feature_type) %>%
+  summarise(n = n())
+
+
+  
+
 # Just IS elements
 IS_avg_methylation_plot <- WT_average_annotated_long %>% 
   filter(feature_type == "IS Elements") %>% 
@@ -866,9 +887,9 @@ DBS_combined_plot <- WT_average_annotated_long %>%
            feature_name == 'IHF' |
            feature_name == 'Lrp') %>% 
   dplyr::mutate(feature_name = forcats::fct_recode(feature_name, 'CRP' = 'CRP-cAMP')) %>% 
-  dplyr::mutate(feature_type = 
-                  forcats::fct_relevel(feature_type,
-                                       ))
+#  dplyr::mutate(feature_type = 
+#                  forcats::fct_relevel(feature_type,
+#                                       ))
   ggplot(aes(x = feature_name, y = beta*100)) +
   geom_boxplot(notch = notch_bool,
                fill = '#B3CDE3') +
@@ -945,9 +966,6 @@ figure_3 <- plot_grid(fig3_top, bottom_plot,
 figure_3
 
 ggview(figure_3, width = 10, height = 7)
-ggsave(file = "filepath/",
-       plot = plot,
-       )
 
 
 #ggsave(plot = figure_3,
@@ -1027,16 +1045,16 @@ ggview(figure_s4,
        width = 6,
        height = 4)
 
-ggsave(plot = figure_s4,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_s4.pdf",
-       width = 6,
-       height = 4)
+#ggsave(plot = figure_s4,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_s4.pdf",
+#       width = 6,
+#       height = 4)
   
-ggsave(plot = figure_s4,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_s4.png",
-       width = 6,
-       height = 4,
-       dpi = 320)
+#ggsave(plot = figure_s4,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_s4.png",
+#       width = 6,
+#       height = 4,
+#       dpi = 320)
 
 # Do KW test and Dunn's test
 sample_distribution_plots <- mgAllSamplesLong %>% 
@@ -1314,7 +1332,7 @@ dm_combined <- plot_grid(NULL, dmWT_plot + theme(legend.position = "none"),
                          label_y = 1,
                          labels = c("","A","","B"))
 dm_combined
-ggview(dm_combined, width = 2.5, height = 4.5)
+#ggview(dm_combined, width = 2.5, height = 4.5)
 ```
 
 ### Ordination
@@ -1486,7 +1504,6 @@ pca_metadata <- tibble(Genotype = groups_NMDS,
 permanova <- adonis2(beta_distance ~ Genotype,
                      data = pca_metadata,
                      method = "euclidean")
-library(pairwiseAdonis)
 print(permanova)
 pairwise.adonis2(beta_distance ~ Genotype,
                  data = pca_metadata,
@@ -1511,15 +1528,15 @@ figure_4 <- plot_grid(dm_combined, NULL, cow_NMDS,
                       align = "h",
                       axis = "bt")
 ggview(figure_4, width = 6.5, height = 4.5)
-ggsave(filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_4.png",
-       plot = figure_4,
-       width = 6.5,
-       height = 4.5,
-       dpi = 320)
-ggsave(filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_4.pdf",
-       plot = figure_4,
-       width = 6.5,
-       height = 4.5)
+#ggsave(filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_4.png",
+#       plot = figure_4,
+#       width = 6.5,
+#       height = 4.5,
+#       dpi = 320)
+#ggsave(filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/figure_4.pdf",
+#       plot = figure_4,
+#       width = 6.5,
+#       height = 4.5)
 ```
 
 
@@ -1611,7 +1628,7 @@ WT_dm_sites <- WT_dm_sites |>
     .default = gene
   )) |> 
   rowwise() |> 
-  dplyr::mutate(m = CoMMA::methylBtoM(meth.diff/100, sym = TRUE))
+  dplyr::mutate(m = methylBtoM(meth.diff/100))
 
 MMR_dm_sites <- MMR_dm_sites |> 
   dplyr::filter(mutated == "NO") |> 
@@ -1642,17 +1659,10 @@ MMR_dm_sites <- MMR_dm_sites |>
     .default = gene
   )) |> 
   rowwise() |> 
-  dplyr::mutate(m = CoMMA::methylBtoM(meth.diff/100, sym = TRUE))
+  dplyr::mutate(m = methylBtoM(meth.diff/100))
 ```
 
-```{r GO-GSEA_analysis}
-library(AnnotationHub)
-library(GOSemSim)
-library(DOSE)
-# Definitely need
-library(org.EcK12.eg.db)
-library(clusterProfiler)
-
+```{r GOanalysis}
 # keytypes(org.EcK12.eg.db)
 
 # Prepare gene ID's
@@ -1776,10 +1786,9 @@ go_dn <- enrichGO(gene = names(geneList_dn),
                   qvalueCutoff = 0.05)
 
 # SIMPLIFY SIMPLFY SIMPLIFY
-ego <- simplify(ego, by = "pvalue")
-go_up <- simplify(go_up, by = "pvalue")
-go_dn <- simplify(go_dn, cutoff = 0.5,
-                  by = "pvalue")
+ego <- clusterProfiler::simplify(ego, by = "pvalue")
+go_up <- clusterProfiler::simplify(go_up, by = "pvalue")
+go_dn <- clusterProfiler::simplify(go_dn, cutoff = 0.5, by = "pvalue")
 
 # Combine lists
 ego@result$group <- "All"
@@ -1863,16 +1872,16 @@ ggview(upset_plot,
        height = 5.5,
        units = "in")
 
-ggsave(plot = upset_plot,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/upsetplot_GO.pdf",
-       height = 5.5,
-       width = 8,
-       units = "in")
-ggsave(plot = upset_plot,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/upsetplot_GO.png",
-       height = 5.5,
-       width = 8,
-       units = "in")
+#ggsave(plot = upset_plot,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/upsetplot_GO.pdf",
+#       height = 5.5,
+#       width = 8,
+#       units = "in")
+#ggsave(plot = upset_plot,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/upsetplot_GO.png",
+#       height = 5.5,
+#       width = 8,
+#       units = "in")
 
 # Which genes are involved in certain processes?
 #res[grepl("mRNA", res$Ont),]
@@ -1894,65 +1903,10 @@ upset_all <- upsetplot(ego)
 upset_updown <- plot_grid(upset_up, upset_dn,
                           ncol = 1)
 
-
-# GSEA
-ego2 <- gseGO(geneList = geneList,
-              OrgDb = org.EcK12.eg.db,
-              ont = "ALL",
-              pvalueCutoff = 0.2,
-              verbose = TRUE,
-              exponent = 2)
-
-goplot(ego2)
-
-WT_gsea <- gseGO(geneList = WT_geneList_all,
-                 OrgDb = org.EcK12.eg.db,
-                 ont = "BP",
-                 pvalueCutoff = 0.05,
-                 verbose = TRUE,
-                 eps = 0,
-                 exponent = 2,
-                 minGSSize = 1,
-                 maxGSSize = 22)
-
-MMR_gsea <- gseGO(geneList = MMR_geneList_all,
-                 OrgDb = org.EcK12.eg.db,
-                 ont = "BP",
-                 pvalueCutoff = 0.05,
-                 verbose = TRUE,
-                 eps = 0,
-                 exponent = 2,
-                 minGSSize = 1,
-                 maxGSSize = 22)
-
-upsetplot(WT_gsea)
-ridgeplot(WT_gsea)
-upsetplot(MMR_gsea)
-ridgeplot(MMR_gsea)
-
-gseaplot2(WT_gsea, geneSetID = 1:5)
-gseaplot2(MMR_gsea, geneSetID = 1:5)
-
-library(enrichplot)
-library(DOSE)
-
-barplot(ego)
-
-edox <- setReadable(ego2, 'org.EcK12.eg.db', 'ENTREZID')
-heatplot(edox, foldChange = geneList)
-
-edox <- setReadable(ego, 'org.EcK12.eg.db', 'ENTREZID')
-heatplot(edox, foldChange = geneList)
-
-upsetplot(ego2)
-
-plot_grid()
-
-#THIS is the one
-upsetplot(ego)
-
-ridgeplot(ego2, core_enrichment = FALSE)
-ridgeplot(ego)
+#upsetplot(ego)
+#
+#ridgeplot(ego2, core_enrichment = FALSE)
+#ridgeplot(ego)
 ```
 
 # DM intersect euler plots
@@ -1999,10 +1953,10 @@ for (i in 1:nplots) {
 plot_grid(plotlist = plot_list)
 # Choose the one you like
 dm_euler_plot <- plot_list[[26]]
-ggsave(dm_euler_plot,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/venn_dm_sites.png")
-ggsave(dm_euler_plot,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/venn_dm_sites.pdf")
+#ggsave(dm_euler_plot,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/venn_dm_sites.png")
+#ggsave(dm_euler_plot,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/venn_dm_sites.pdf")
 dm_euler_plot <- plot(dm_overlaps,
                       fills = list(fill = c("#FFFF33", "#377EB8", "#278924", "#016300"),
                                    alpha = c(0.9, 0.9, 1, 1)))
@@ -2035,15 +1989,19 @@ ggview(figure_4,
        height = 5.5,
        width = 8, units = "in")
 
-ggsave(plot = figure_4,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/new_figure_4.png",
-       height = 5.5,
-       width = 8,
-       units = "in")
-ggsave(plot = figure_4,
-       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/new_figure_4.pdf",
-       height = 5.5,
-       width = 8,
-       units = "in")
+#ggsave(plot = figure_4,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/new_figure_4.png",
+#       height = 5.5,
+#       width = 8,
+#       units = "in")
+#ggsave(plot = figure_4,
+#       filename = "/Users/carlstone/Library/CloudStorage/Box-Box/Behringer_Lab_Box_Drive/Projects/LongTermExpEvo/MethylationProject/Manuscript/Figures/new_figure_4.pdf",
+#       height = 5.5,
+#       width = 8,
+#       units = "in")
+```
+
+```{r print_session_info}
+sessionInfo()
 ```
 
